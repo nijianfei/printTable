@@ -67,7 +67,7 @@ public class PrintController {
             int backH = BigDecimal.valueOf(pageFormat.getImageableHeight()).multiply(imageScale).intValue();
 
             int templateH = BigDecimal.valueOf(template.getTemplateHeight()).divide(millimeterToPixelRatio, 0, RoundingMode.DOWN).intValue();
-            int tH = templateH + 50;
+            int tH = templateH + template.getTemplateSpace();
             int count = backH / tH;
             BufferedImage backImage = getImage(backW, backH, WHITE);
             List<List<PrintDto>> partition = ListUtils.partition(params, count);
@@ -109,21 +109,13 @@ public class PrintController {
         Font deptFont = new Font("方正等线", template.getDeptName().getStyle(), ptToPx(template.getDeptName().getSize()));
         Font nameFont = new Font("方正等线", template.getUserName().getStyle(), ptToPx(template.getUserName().getSize()));
 
-        Block topBlock = null;
-        //部门元素 计算总长度
-        TextElement tempElement = new TextElement(param.getDeptNameTemp(), deptFont, 0, 0);
-        if (StringUtils.isNotBlank(param.getDeptName2())) {
-            topBlock = template.getTopDouble();
-        } else {
-            topBlock = template.getTopSingle();
-        }
+        Block topBlock = template.getTopDouble();
         //头部色条
         BufferedImage topImage = getImage(topBlock.getWidth(), topBlock.getHeight(), topBlock.getColorBean());
 
         Block bottomBlock = template.getBottomSingle();
         //底部色条
         BufferedImage bottomImage = getImage(bottomBlock.getWidth(), bottomBlock.getHeight(), bottomBlock.getColorBean());
-
 
         ImageCombiner combiner = new ImageCombiner(templateBackImage, OutputFormat.PNG);
         //模板底图
@@ -132,31 +124,25 @@ public class PrintController {
         combiner.addImageElement(topImage, topBlock.getX(), topBlock.getY());
         //底边色条
         combiner.addImageElement(bottomImage, bottomBlock.getX(), bottomBlock.getY());
-        Integer dHeight = tempElement.getHeight();
+
+        //部门元素临时变量
+        TextElement tempElement = new TextElement(param.getDeptNameTemp(), deptFont, 0, 0);
         boolean deptDouble = BigDecimal.valueOf(tempElement.getWidth()).divide(BigDecimal.valueOf(topBlock.getWidth()),2,RoundingMode.HALF_UP).doubleValue() >= 0.66;
-        int deptAutoHeight = getAutoPoint(topBlock.getHeight(), dHeight);
+        int deptAutoHeight = getAutoPoint(topBlock.getHeight(), tempElement.getHeight());
 
+        //部门多行显示
         if (deptDouble) {
-            //二级部门
-            Block deptNameBlock2 = template.getDeptName2();
-            combiner.addTextElement(param.getDeptName2(), deptFont, deptNameBlock2.getX(), deptNameBlock2.getY()).setColor(deptNameBlock2.getColorBean());
-
             Block deptNameBlock = template.getDeptName();
             //一级部门
             combiner.addTextElement(param.getDeptName(), deptFont, deptNameBlock.getX(), deptNameBlock.getY()).setColor(deptNameBlock.getColorBean());
+            //二级部门
+            Block deptNameBlock2 = template.getDeptName2();
+            combiner.addTextElement(param.getDeptName2(), deptFont, deptNameBlock2.getX(), deptNameBlock2.getY()).setColor(deptNameBlock2.getColorBean());
         }else{
+            //部门单行显示
             Block deptNameBlock = template.getDeptName();
-            //一级部门
             combiner.addTextElement(param.getDeptNameTemp(), deptFont, deptNameBlock.getX(), deptAutoHeight).setColor(deptNameBlock.getColorBean());
         }
-        //二级部门
-//        if (StringUtils.isNotBlank(param.getDeptName2())) {
-//            Block deptNameBlock2 = template.getDeptName2();
-//            combiner.addTextElement(param.getDeptName2(), deptFont, deptNameBlock2.getX(), deptNameBlock2.getY()).setColor(deptNameBlock2.getColorBean());
-//        }else{
-//
-//        }
-
 
         Block userNameBlock = template.getUserName();
         TextElement textElementName = new TextElement(param.getUserName(), nameFont, 0, 0).setSpace(userNameBlock.getSpace());
@@ -173,7 +159,6 @@ public class PrintController {
         } catch (Exception e) {
             throw new RuntimeException(e);
         }
-
     }
 
     private int getAutoPoint(int overallLength , int localLength) {
@@ -181,12 +166,6 @@ public class PrintController {
         int templateCentral = BigDecimal.valueOf(overallLength).multiply(BigDecimal.valueOf(0.5)).setScale(0, RoundingMode.HALF_DOWN).intValue();
         int nameCentral = BigDecimal.valueOf(localLength).multiply(BigDecimal.valueOf(0.5)).setScale(0, RoundingMode.HALF_DOWN).intValue();
         return templateCentral - nameCentral;
-    }
-
-    @PostMapping("batchPrint")
-    public Object batchPrint(@RequestBody List<PrintDto> params) {
-
-        return ResponseDto.success();
     }
 
     private void checkParam(List<PrintDto> params) {
@@ -204,64 +183,4 @@ public class PrintController {
         }
     }
 
-
-    public static void main(String[] args) {
-
-
-        // 获取默认的打印服务
-        PrintService defaultPrintService = PrintServiceLookup.lookupDefaultPrintService();
-
-        PrintService printer = PrintServiceLookup.lookupDefaultPrintService();
-
-        PrintService[] services = PrintServiceLookup.lookupPrintServices(null, null);
-        PrintService svc = PrintServiceLookup.lookupDefaultPrintService();
-        PrintRequestAttributeSet attrs = new HashPrintRequestAttributeSet();
-        PrintService selection = ServiceUI.printDialog(null, 100, 100, services, svc, null, attrs);
-
-        Media[] objs = (Media[]) printer.getSupportedAttributeValues(Media.class, null, null);
-        for (Media obj : objs) {
-            if (obj instanceof MediaSizeName) {
-                System.out.println("纸张型号：" + obj);
-            } else if (obj instanceof MediaTray) {
-                System.out.println("纸张来源：" + obj);
-            }
-        }
-
-        // 列出所有可用的打印机
-        PrintService[] printServices = PrintServiceLookup.lookupPrintServices(null, null);
-        for (PrintService printService : printServices) {
-            // 获取打印机的参数属性
-            DocFlavor flavor = printService.getSupportedDocFlavors()[0];
-            AttributeSet attributes = printService.getAttributes();
-            Attribute attribute1 = attributes.get(Media.class);
-            System.out.println("打印机名称: " + printService.getName());
-            System.out.println("默认打印机: " + (printService.equals(defaultPrintService)));
-            System.out.println("支持的文档类型: " + flavor);
-            // 打印属性信息
-            for (Attribute attribute : attributes.toArray()) {
-                String name = attribute.getName();
-                Class<? extends Attribute> category = attribute.getCategory();
-                System.out.println(name + ": " + category);
-            }
-            System.out.println("-------------------------------------");
-
-        }
-    }
-
-
-    public static void printResult(PrinterStateReasons printerStateReasons) {
-        if (printerStateReasons != null) {
-            if (printerStateReasons.containsKey(PrinterStateReason.MEDIA_EMPTY)) {
-                System.out.println("打印机缺纸");
-            } else if (printerStateReasons.containsKey(PrinterStateReason.MEDIA_JAM)) {
-                System.out.println("打印机卡纸");
-            } else if (printerStateReasons.containsKey(PrinterStateReason.MEDIA_NEEDED)) {
-                System.out.println("打印机纸张有问题");
-            } else {
-                System.out.println("打印机正常");
-            }
-        } else {
-            System.out.println("无法获取打印机状态");
-        }
-    }
 }

@@ -28,7 +28,10 @@ public class Template {
      */
     private int templateHeight;
 
-
+    /**
+     * 多个模板间的距离（像素）
+     */
+    private int templateSpace;
     /**
      * 人员姓名
      */
@@ -85,6 +88,14 @@ public class Template {
 
     public void setTemplateHeight(int templateHeight) {
         this.templateHeight = templateHeight;
+    }
+
+    public int getTemplateSpace() {
+        return templateSpace;
+    }
+
+    public void setTemplateSpace(int templateSpace) {
+        this.templateSpace = templateSpace;
     }
 
     public Block getUserName() {
